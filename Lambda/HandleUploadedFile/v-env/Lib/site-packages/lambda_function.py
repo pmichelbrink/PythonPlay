@@ -35,7 +35,7 @@ def lambda_handler(event, context):
                         'Id': uid_str[9:],
                         'FileName': key,
                         'Created': datetime.now().isoformat(),
-                        'LastServed': datetime(1,1,1).isoformat(),
+                        'LastServed': datetime(1970,1,1).isoformat(),
                         'ClassificationConfidence': 0,                       
                     }
                 )
