@@ -1,8 +1,6 @@
 import boto3
-import os
 import uuid
 from urllib.parse import unquote_plus
-import imghdr
 from datetime import datetime
 
 s3_client = boto3.client('s3')
@@ -12,18 +10,20 @@ def lambda_handler(event, context):
         for record in event['Records']:
             bucket = record['s3']['bucket']['name']
             key = unquote_plus(record['s3']['object']['key'])
-            tmpkey = key.replace('/', '')
-            download_path = '/tmp/{}{}'.format(uuid.uuid4(), tmpkey)
-            s3_client.download_file(bucket, key, download_path)
-            statinfo = os.stat(download_path)
+
+            response = s3_client.head_object(Bucket=bucket, Key=key)
+            size = response['ContentLength']
+            if (size > 10000000):
+                print('File too large ({} bytes). Deleting {}'.format(size, key))
+                s3_client.delete_object(Bucket=bucket, Key=key)
+                continue
             
-            if (imghdr.what(download_path) == None):
+            contentType = response['ContentType']
+            if ("image" not in contentType.lower()):
                 print('File is not an image. Deleting {}'.format(key))
-            elif (statinfo.st_size > 10000000):
-                print('File too large ({} bytes). Deleting {}'.format(statinfo.st_size, key))
             else:
                 # Move the file to the non-public images bucket
-                s3_client.upload_file(download_path, 'wtfthat-images', key)
+                s3_client.copy_object(CopySource=bucket + '/' + key, Bucket='wtfthat-images', Key= key)
 
                 # Create a record in the DB
                 dynamodb = boto3.resource('dynamodb')
